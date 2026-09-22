@@ -1,0 +1,129 @@
+"use client";
+
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import axios from "axios";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Eye, EyeOff } from "lucide-react";
+
+export default function LoginPage() {
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+    const router = useRouter();
+    const [formData, setFormData] = useState({
+        email: "",
+        password: "",
+    })
+    const [showPassword, setShowPassword] = useState(false);
+    const handleSubmit = async (e : React.SubmitEvent) => {
+        e.preventDefault();
+        try {
+            setError("");
+            setLoading(true);
+
+            const response = await axios.post("api/users/login", formData);
+
+            toast.success("Login successifull")
+
+            router.push("/dashboard")
+            console.log(response.data);
+            
+            
+        } catch (error: unknown) {
+            if(axios.isAxiosError(error)){
+                setError(error.response?.data.message || "Something went wrong")
+            } else {
+                setError("Something went wrong")
+            }
+        } finally {
+            setLoading(false)
+        }
+
+    }
+  return (
+    <main className="min-h-screen flex items-center justify-center p-6">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>Welcome back to Finova</CardTitle>
+          <CardDescription>
+            Enter your details to access your account.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent>
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={formData.email}
+                onChange={(e) =>
+                setFormData({...formData, email: e.target.value})}
+              />
+            </div>
+
+            <div className="mt-4 space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
+                  value={formData.password}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
+                  className="pr-10"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+                    <p className="mt-4 text-sm text-destructive">
+                        {error}
+                    </p>
+                )}
+
+            <Button
+                className="mt-6 w-full"
+                type="submit"
+                disabled={loading}
+                >
+                {loading ? "Logging in..." : "Login"}
+                </Button>
+
+            <p className="mt-4 text-center text-sm text-muted-foreground">
+              Don't have an account?{" "}
+              <a
+                href="/signup"
+                className="font-medium text-primary hover:underline"
+              >
+                Create account
+              </a>
+            </p>
+          </form>
+        </CardContent>
+      </Card>
+    </main>
+  );
+}
