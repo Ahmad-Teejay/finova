@@ -113,6 +113,7 @@ export async function POST(request: NextRequest){
         {
             user: user.userId,
             type: "debit",
+            category: "transfer",
             amount: numericAmount,
             description: `Money sent to ${recipientUser.username}`,
             status: "success",
@@ -121,6 +122,7 @@ export async function POST(request: NextRequest){
         {
             user: recipientUser._id,
             type: "credit",
+            category: "transfer",
             amount: numericAmount,
             description: `Money received from ${user.email}`,
             status: "success",

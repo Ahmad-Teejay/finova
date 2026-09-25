@@ -3,6 +3,7 @@ import mongoose,{ Schema, Document } from  'mongoose';
 export interface ITransaction extends Document{
  user: mongoose.Types.ObjectId;
  type: "credit" | "debit";
+ category: "deposit" | "transfer" | "withdrawal" | "airtime" | "data" | "bill";
  amount: number;
  description: string;
  status: "pending" | "success" | "failed";
@@ -21,6 +22,19 @@ const transactionSchema = new Schema<ITransaction>(
             type: String,
             enum: ["credit", "debit"],
             required: true,
+        },
+
+        category: {
+                type: String,
+                enum: [
+                    "deposit",
+                    "transfer",
+                    "withdrawal",
+                    "airtime",
+                    "data",
+                    "bill",
+                ],
+                required: true,
         },
 
         amount: {

@@ -25,7 +25,7 @@ export async function getCurrentUser(){
         const payload = decoded as AuthTokenPayload;
 
         return payload;
-    } catch (error: any) {
+    } catch (error) {
         console.error("Token verification failed", error)
         return null
     }

@@ -57,7 +57,7 @@ export default function AddMoneyPage() {
   };
 
   verifyPayment();
-}, []);
+}, [router]);
 
   const handleSubmit = async () => {
     setError("");

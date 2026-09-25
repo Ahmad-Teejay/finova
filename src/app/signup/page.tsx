@@ -38,8 +38,12 @@
 
                 toast.success("Account created successfully!");
                 router.push("/login")
-            } catch (error: any) {
-                setError(error.response?.data?.message || "Something went wrong")
+            } catch (error: unknown) {
+                if(axios.isAxiosError(error)){
+                setError(error.response?.data.message || "Something went wrong")
+            } else {
+                setError("Something went wrong")
+            }
             } finally {
                 setLoading(false)
             }

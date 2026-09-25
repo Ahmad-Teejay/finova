@@ -112,6 +112,7 @@ export async function GET(request: NextRequest) {
           {
             user: user.userId,
             type: "credit",
+            category: "deposit",
             amount,
             description: "Wallet deposit",
             status: "success",

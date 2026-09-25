@@ -1,6 +1,5 @@
 import { connect } from "@/dbConfig/dbConfig";
 import User from "@/models/userModel";
-import Wallet from "@/models/walletModel";
 import bcryptjs from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
@@ -64,7 +63,7 @@ export  async function POST(request: NextRequest){
 
         return response;
 
-    } catch (error: any) {
+    } catch (error) {
         console.error(error);
         
         return NextResponse.json(
