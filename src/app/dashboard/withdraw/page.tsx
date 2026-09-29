@@ -10,6 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import crypto from "crypto";
 
 
 interface Bank {
@@ -22,10 +23,8 @@ export default function WithdrawPage() {
   const [bankName, setBankName] = useState("");
   const [bankCode, setBankCode] = useState("");
   const [amount, setAmount] = useState("");
-
   const [banks, setBanks] = useState<Bank[]>([]);
   const [accountName, setAccountName] = useState("");
-
   const [error, setError] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -174,6 +173,7 @@ export default function WithdrawPage() {
       return;
     }
 
+    const idempotencyKey = crypto.randomUUID();
     try {
       setIsLoading(true);
 
@@ -187,6 +187,7 @@ export default function WithdrawPage() {
           bankName,
           bankCode,
           amount: numericAmount,
+          idempotencyKey,
         }),
       });
 
@@ -242,7 +243,7 @@ export default function WithdrawPage() {
             {/* Bank */}
             <div className="space-y-2">
               <Label htmlFor="bank">
-                Bank
+                Choose Bank
               </Label>
 
               <select

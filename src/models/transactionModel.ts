@@ -6,8 +6,10 @@ export interface ITransaction extends Document{
  category: "deposit" | "transfer" | "withdrawal" | "airtime" | "data" | "bill";
  amount: number;
  description: string;
- status: "pending" | "success" | "failed";
+ status: "pending" | "success" | "failed" | "reversed";
  reference: string;
+ walletRefunded: boolean;
+ idempotencyKey?: string;
 }
 
 const transactionSchema = new Schema<ITransaction>(
@@ -51,7 +53,7 @@ const transactionSchema = new Schema<ITransaction>(
 
         status: {
             type: String,
-            enum: ["pending", "success", "failed"],
+            enum: ["pending", "success", "failed", "reversed"],
             default: "pending",
         },
 
@@ -60,6 +62,17 @@ const transactionSchema = new Schema<ITransaction>(
             required: true,
             unique: true,
         },
+
+        walletRefunded: {
+            type: Boolean,
+            default: false,
+        },
+
+        idempotencyKey: {
+            type: String,
+            unique: true,
+            sparce: true,
+        }
     },
 
     {

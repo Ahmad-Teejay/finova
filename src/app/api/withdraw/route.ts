@@ -28,7 +28,9 @@ export async function POST(request: NextRequest) {
       bankName,
       bankCode,
       accountNumber,
+      accountName,
       amount,
+      idempotencyKey,
     } = reqBody;
 
     const numericAmount = Number(amount);
@@ -97,37 +99,131 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if(!idempotencyKey){
+      return NextResponse.json(
+        {
+          success: false,
+          message: "IdemponcyKey is required",
+        },
+        {status: 400}
+      )
+    };
+
     /*
      * STEP 1
-     * Check the user's wallet before contacting Paystack.
+     * Generate a unique withdrawal reference.
      */
 
-    const wallet = await Wallet.findOne({
+    const reference = `withdraw-${crypto.randomUUID()}`;
+
+    const existingTransaction = await Wallet.findOne({
       user: user.userId,
+      idempotencyKey,
     });
 
-    if (!wallet) {
+    if(existingTransaction){
       return NextResponse.json(
         {
-          success: false,
-          message: "Wallet not found",
-        },
-        { status: 404 }
-      );
+          success: true,
+          message: "Withdraw request successiful",
+          reference: existingTransaction.reference,
+          status:existingTransaction.status,
+        }
+      )
     }
 
-    if (wallet.balance < numericAmount) {
+    /*
+     * STEP 2
+     * Reserve the user's money and create
+     * a pending withdrawal transaction.
+     */
+
+    const session = await mongoose.startSession();
+
+    try {
+      session.startTransaction();
+
+      const wallet = await Wallet.findOne({
+        user: user.userId,
+      }).session(session);
+
+      if (!wallet) {
+        throw new Error("Wallet not found");
+      }
+
+      if (wallet.balance < numericAmount) {
+        throw new Error("Insufficient balance");
+      }
+
+      // Reserve/deduct the withdrawal amount
+      wallet.balance -= numericAmount;
+
+      await wallet.save({
+        session,
+      });
+
+      // Create pending withdrawal transaction
+      await Transaction.create(
+        [
+          {
+            user: user.userId,
+            type: "debit",
+            category: "withdrawal",
+            amount: numericAmount,
+            description: `Withdrawal to ${bankName} - ****${accountNumber.slice(-4)}`,
+            status: "pending",
+            reference,
+            idempotencyKey,
+          },
+        ],
+        {
+          session,
+          ordered: true,
+        }
+      );
+
+      await session.commitTransaction();
+    } catch (error) {
+      await session.abortTransaction();
+
+      // Another request may have created this withdrawal
+      // with the same idempotency key.
+      if (
+        error instanceof Error &&
+        "code" in error &&
+        error.code === 11000
+      ) {
+        const existingTransaction = await Transaction.findOne({
+          user: user.userId,
+          idempotencyKey,
+        });
+
+        if (existingTransaction) {
+          return NextResponse.json({
+            success: true,
+            message: "Withdrawal request already processed",
+            reference: existingTransaction.reference,
+            status: existingTransaction.status,
+          });
+        }
+      }
+
+      console.error("Withdrawal reservation error:", error);
+
       return NextResponse.json(
         {
           success: false,
-          message: "Insufficient balance",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to reserve withdrawal",
         },
         { status: 400 }
       );
     }
 
     /*
-     * STEP 2
+     * STEP 3
      * Create Paystack transfer recipient.
      */
 
@@ -141,7 +237,7 @@ export async function POST(request: NextRequest) {
         },
         body: JSON.stringify({
           type: "nuban",
-          name: reqBody.accountName || "Finova User",
+          name: accountName || "Finova User",
           account_number: accountNumber,
           bank_code: bankCode,
           currency: "NGN",
@@ -157,14 +253,12 @@ export async function POST(request: NextRequest) {
         recipientData
       );
 
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            recipientData.message ||
-            "Failed to create transfer recipient",
-        },
-        { status: 400 }
+      return await refundWithdrawal(
+        user.userId,
+        reference,
+        numericAmount,
+        recipientData.message ||
+          "Failed to create transfer recipient"
       );
     }
 
@@ -172,20 +266,8 @@ export async function POST(request: NextRequest) {
       recipientData.data.recipient_code;
 
     /*
-     * STEP 3
-     * Generate a unique Paystack transfer reference.
-     *
-     * Paystack requires the reference to use
-     * lowercase letters, numbers, "-" or "_".
-     */
-
-    const reference = `withdraw-${crypto.randomUUID()}`;
-
-    /*
      * STEP 4
-     * Initiate the actual Paystack transfer.
-     *
-     * NGN amount must be converted to kobo.
+     * Initiate Paystack transfer.
      */
 
     const transferResponse = await fetch(
@@ -215,97 +297,28 @@ export async function POST(request: NextRequest) {
         transferData
       );
 
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            transferData.message ||
-            "Failed to initiate withdrawal",
-        },
-        { status: 400 }
+      return await refundWithdrawal(
+        user.userId,
+        reference,
+        numericAmount,
+        transferData.message ||
+          "Failed to initiate withdrawal"
       );
     }
 
     /*
-     * STEP 5
      * Paystack accepted the transfer.
      *
-     * Now deduct the money and create a pending
-     * transaction in Finova.
+     * Our wallet has already been reserved,
+     * so we do NOT deduct it again.
      */
 
-    const session = await mongoose.startSession();
-
-    try {
-      session.startTransaction();
-
-      const currentWallet = await Wallet.findOne({
-        user: user.userId,
-      }).session(session);
-
-      if (!currentWallet) {
-        throw new Error("Wallet not found");
-      }
-
-      if (currentWallet.balance < numericAmount) {
-        throw new Error("Insufficient balance");
-      }
-
-      currentWallet.balance -= numericAmount;
-
-      await currentWallet.save({
-        session,
-      });
-
-      await Transaction.create(
-        [
-          {
-            user: user.userId,
-            type: "debit",
-            category: "withdrawal",
-            amount: numericAmount,
-            description: `Withdrawal to ${bankName} - ****${accountNumber.slice(
-              -4
-            )}`,
-            status: "pending",
-            reference,
-          },
-        ],
-        {
-          session,
-          ordered: true,
-        }
-      );
-
-      await session.commitTransaction();
-
-      return NextResponse.json({
-        success: true,
-        message: "Withdrawal initiated successfully",
-        reference,
-        status: transferData.data.status,
-      });
-    } catch (error) {
-      await session.abortTransaction();
-
-      console.error(
-        "Withdrawal database transaction error:",
-        error
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            error instanceof Error
-              ? error.message
-              : "Failed to save withdrawal",
-        },
-        { status: 500 }
-      );
-    } finally {
-      session.endSession();
-    }
+    return NextResponse.json({
+      success: true,
+      message: "Withdrawal initiated successfully",
+      reference,
+      status: transferData.data.status,
+    });
   } catch (error) {
     console.error("Withdrawal API error:", error);
 
@@ -316,5 +329,78 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 }
     );
+  }
+}
+
+/*
+ * Refund a withdrawal when Paystack immediately
+ * rejects the recipient or transfer.
+ */
+async function refundWithdrawal(
+  userId: string,
+  reference: string,
+  amount: number,
+  reason: string
+) {
+  const session = await mongoose.startSession();
+
+  try {
+    session.startTransaction();
+
+    const wallet = await Wallet.findOne({
+      user: userId,
+    }).session(session);
+
+    if (!wallet) {
+      throw new Error("Wallet not found during refund");
+    }
+
+    wallet.balance += amount;
+
+    await wallet.save({
+      session,
+    });
+
+    const transaction = await Transaction.findOne({
+      user: userId,
+      reference,
+    }).session(session);
+
+    if (transaction) {
+      transaction.status = "failed";
+      await transaction.save({
+        session,
+      });
+    }
+
+    await session.commitTransaction();
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: reason,
+        reference,
+      },
+      { status: 400 }
+    );
+  } catch (error) {
+    await session.abortTransaction();
+
+    console.error(
+      "Withdrawal refund error:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          "Withdrawal failed and refund requires reconciliation",
+        reference,
+      },
+      { status: 500 }
+    );
+  } finally {
+    session.endSession();
   }
 }
