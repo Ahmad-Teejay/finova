@@ -20,8 +20,10 @@
         const [loading, setLoading] = useState(false);
         const router = useRouter();
         const [formData, setFormData] = useState({
+                fullName: "",
                 username: "",
                 email: "",
+                phone: "",
                 password: "",
         });
         const [showPassword, setShowPassword] = useState(false);
@@ -32,7 +34,7 @@
                 setError("");
                 setLoading(true);
 
-                const response = await axios.post("api/users/signup", formData);
+                const response = await axios.post("/api/users/signup", formData);
 
                 console.log(response.data);
 
@@ -61,9 +63,25 @@
 
             <CardContent>
             <form onSubmit={handleSubmit}>
-                <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
 
+                <div className="space-y-2">
+                <Label htmlFor="fullName">Full Name</Label>
+                <Input
+                    id="fullName"
+                    type="text"
+                    placeholder="Enter your full name"
+                    value={formData.fullName}
+                    onChange={(e) =>
+                    setFormData({
+                        ...formData,
+                        fullName: e.target.value,
+                    })
+                    }
+                />
+                </div>
+
+                <div className=" mt-4 space-y-2">
+                <Label htmlFor="username">Username</Label>
                 <Input
                     id="username"
                     type="text"
@@ -75,7 +93,6 @@
 
                 <div className="mt-4 space-y-2">
                 <Label htmlFor="email">Email</Label>
-
                 <Input
                     id="email"
                     type="email"
@@ -83,6 +100,20 @@
                     value={formData.email}
                     onChange={(e) => setFormData({...formData, email: e.target.value})}
                 />
+                </div>
+
+                <div className="mt-4 space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+
+                <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="Enter your phone number"
+                    value={formData.phone}
+                    onChange={(e) =>
+                        setFormData({ ...formData, phone: e.target.value })
+                    }
+                />  
                 </div>
 
                 <div className="mt-4 space-y-2">
@@ -117,7 +148,7 @@
                 )}
 
                 <Button
-                className="mt-6 w-full"
+                className="border-blue-950 bg-linear-to-br from-[#071A3D] via-[#0B2855] to-[#06142E] text-white shadow-xl mt-6 w-full"
                 type="submit"
                 disabled={loading}
                 >

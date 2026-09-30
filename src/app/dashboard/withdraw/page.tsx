@@ -10,9 +10,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import crypto from "crypto";
-
-
 interface Bank {
   name: string;
   code: string;
@@ -173,8 +170,8 @@ export default function WithdrawPage() {
       return;
     }
 
-    const idempotencyKey = crypto.randomUUID();
     try {
+     const idempotencyKey = window.crypto.randomUUID();
       setIsLoading(true);
 
       const response = await fetch("/api/withdraw", {
@@ -184,6 +181,7 @@ export default function WithdrawPage() {
         },
         body: JSON.stringify({
           accountNumber,
+          accountName,
           bankName,
           bankCode,
           amount: numericAmount,
@@ -314,7 +312,7 @@ export default function WithdrawPage() {
               type="button"
               onClick={handleSubmit}
               disabled={isLoading || isVerifying}
-              className="w-full"
+              className="border-blue-950 bg-linear-to-br from-[#071A3D] via-[#0B2855] to-[#06142E] text-white shadow-xl mt-6 w-full"
             >
               {isLoading ? "Processing..." : "Withdraw"}
             </Button>

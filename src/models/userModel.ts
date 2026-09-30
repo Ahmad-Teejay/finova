@@ -1,15 +1,25 @@
 import mongoose,{ Schema, Document } from "mongoose";
 
 export interface IUser extends Document{
+    fullName: string,
     username: string,
     email: string,
     password: string,
+    phone: string,
+    accountNumber: string,
+    transactionPinHash: string | null,
     isVerified: boolean,
     isAdmin: boolean,
 }
 
 const userSchema =  new Schema<IUser>(
     {
+        fullName: {
+            type: String,
+            required: true,
+            trim: true,
+        },
+
         username: {
             type: String,
             required: [true, "username is required"],
@@ -29,6 +39,26 @@ const userSchema =  new Schema<IUser>(
             required: [true, "password is required"],
 
         },
+
+        transactionPinHash: {
+            type: String,
+            default: null,
+        },
+
+        phone: {
+            type: String,
+            required: true,
+            unique: true,
+            trim: true,
+        },
+
+        accountNumber: {
+            type: String,
+            required: true,
+            unique: true,
+            trim: true,
+        },
+
 
         isVerified: {
             type: Boolean,

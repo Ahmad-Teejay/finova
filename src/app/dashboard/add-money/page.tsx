@@ -141,7 +141,7 @@ export default function AddMoneyPage() {
 
             <Button 
             onClick={handleSubmit}
-            className="w-full">
+            className="border-blue-950 bg-linear-to-br from-[#071A3D] via-[#0B2855] to-[#06142E] text-white shadow-xl mt-6 w-full">
               Continue
             </Button>
           </div>

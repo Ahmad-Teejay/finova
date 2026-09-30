@@ -8,7 +8,8 @@ import BalanceCard from "@/components/dashboard/balance-card";
 import Transaction from "@/models/transactionModel";
 import RecentTransactions from "@/components/dashboard/recent-transactions";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Landmark, Send, BanknoteArrowDown } from "lucide-react";
+import User from "@/models/userModel";
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
@@ -18,6 +19,14 @@ export default async function DashboardPage() {
   }
 
   await connect();
+
+  const userProfile = await User.findById(user.userId).select(
+    "username email phone accountNumber"
+  );
+
+  if(!userProfile){
+    throw new Error("User profile not found")
+  }
 
   const wallet = await Wallet.findOne({
     user: user.userId,
@@ -37,8 +46,8 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen">
-      <DashboardHeader />
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <DashboardHeader username={user.email} />
 
       <div className="flex">
         <DashboardSidebar />
@@ -55,28 +64,46 @@ export default async function DashboardPage() {
           <div className="mt-6 max-w-md">
             <BalanceCard
               balance={wallet.balance}
-              currency={wallet.currency}
+              accountNumber={userProfile.accountNumber}
             />
 
-          <div className="mt-6 flex gap-5">
-            <Link href="/dashboard/add-money">
-              <Button> 
-                Add Money
-              </Button>
-            </Link>
+            <div className="mt-6 grid grid-cols-3 gap-3">
+              <Link href="/dashboard/add-money">
+                <div className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-slate-200 bg-slate-100 p-4 text-center transition hover:bg-slate-200">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+                    <Landmark size={20} />
+                  </div>
 
-            <Link href="/dashboard/send-money">
-            <Button>
-              Send Money
-            </Button>
-            </Link>
+                  <span className="text-sm font-medium text-slate-800">
+                    Add Money
+                  </span>
+                </div>
+              </Link>
 
-            <Link href="/dashboard/withdraw">
-            <Button>
-              Withdrawal
-            </Button>
-            </Link>
-          </div>
+              <Link href="/dashboard/send-money">
+                <div className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-slate-200 bg-slate-100 p-4 text-center transition hover:bg-slate-200">
+               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+                  <Send size={20} />
+               </div>
+
+                  <span className="text-sm font-medium text-slate-800">
+                    Send Money
+                  </span>
+                </div>
+              </Link>
+
+              <Link href="/dashboard/withdraw">
+                <div className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-slate-200 bg-slate-100 p-4 text-center transition hover:bg-slate-200">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+                    <BanknoteArrowDown size={20} />
+                  </div>
+
+                  <span className="text-sm font-medium text-slate-800">
+                    Withdraw
+                  </span>
+                </div>
+              </Link>
+            </div>
 
             <RecentTransactions
             transactions={transactions.map((transaction) => ({

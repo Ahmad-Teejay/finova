@@ -158,9 +158,7 @@ export async function POST(request: NextRequest) {
       // Reserve/deduct the withdrawal amount
       wallet.balance -= numericAmount;
 
-      await wallet.save({
-        session,
-      });
+      await wallet.save({ session });
 
       // Create pending withdrawal transaction
       await Transaction.create(
@@ -258,12 +256,11 @@ export async function POST(request: NextRequest) {
         reference,
         numericAmount,
         recipientData.message ||
-          "Failed to create transfer recipient"
+        "Failed to create transfer recipient"
       );
     }
 
-    const recipientCode =
-      recipientData.data.recipient_code;
+    const recipientCode = recipientData.data.recipient_code;
 
     /*
      * STEP 4
@@ -302,7 +299,7 @@ export async function POST(request: NextRequest) {
         reference,
         numericAmount,
         transferData.message ||
-          "Failed to initiate withdrawal"
+        "Failed to initiate withdrawal"
       );
     }
 
@@ -357,9 +354,7 @@ async function refundWithdrawal(
 
     wallet.balance += amount;
 
-    await wallet.save({
-      session,
-    });
+    await wallet.save({ session });
 
     const transaction = await Transaction.findOne({
       user: userId,
