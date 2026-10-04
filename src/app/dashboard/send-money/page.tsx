@@ -37,6 +37,10 @@ export default function SendMoneyPage() {
   const [pin, setPin] = useState("");
   const [pinLoading, setPinLoading] = useState(false);
 
+  // PIN lock state
+  const [pinLocked, setPinLocked] = useState(false);
+  const [pinLockMessage, setPinLockMessage] = useState("");
+
   // References for the four PIN inputs
   const pinRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -135,15 +139,6 @@ export default function SendMoneyPage() {
     }
   };
 
-  // Reset PIN
-  const resetPin = () => {
-    setPin("");
-
-    setTimeout(() => {
-      pinRefs.current[0]?.focus();
-    }, 0);
-  };
-
   // Close confirmation modal
   const closeConfirmModal = () => {
     if (pinLoading) return;
@@ -156,6 +151,17 @@ export default function SendMoneyPage() {
   // Open confirmation modal
   const openConfirmModal = () => {
     setError("");
+
+    if (pinLocked) {
+      toast.error(
+        pinLockMessage || "Transaction PIN is currently locked.",
+        {
+          duration: 5000,
+        }
+      );
+
+      return;
+    }
 
     if (!recipient) {
       setError("Please enter a valid recipient account number");
@@ -217,7 +223,31 @@ export default function SendMoneyPage() {
       const data = await response.json();
 
       if (!response.ok) {
+        // PIN locked
+        if (response.status === 403) {
+          setPinLocked(true);
+          setPinLockMessage(
+            data.message ||
+              "Your transaction PIN is temporarily locked."
+          );
+
+          toast.error(
+            data.message || "Transaction PIN is locked",
+            {
+              duration: 5000,
+            }
+          );
+
+          setPin("");
+          setShowConfirmModal(false);
+
+          return;
+        }
+
+        // Other transfer errors
         toast.error(data.message || "Transfer failed");
+        setPin("");
+
         return;
       }
 
@@ -247,7 +277,28 @@ export default function SendMoneyPage() {
 
   return (
     <>
-      <main className="flex min-h-screen items-center justify-center p-6">
+      <main className="flex min-h-screen flex-col items-center justify-center p-6">
+        {/* PIN LOCK WARNING */}
+        {pinLocked && (
+          <div className="mb-4 w-full max-w-md rounded-xl border border-red-200 bg-red-50 p-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 text-red-600">
+                🔒
+              </div>
+
+              <div>
+                <p className="font-semibold text-red-800">
+                  Transaction PIN Locked
+                </p>
+
+                <p className="mt-1 text-sm text-red-700">
+                  {pinLockMessage}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Send Money</CardTitle>
@@ -338,10 +389,16 @@ export default function SendMoneyPage() {
               {/* Send Money */}
               <Button
                 onClick={openConfirmModal}
-                disabled={!recipient || !amount}
+                disabled={
+                  !recipient ||
+                  !amount ||
+                  pinLocked
+                }
                 className="mt-6 w-full border-blue-950 bg-linear-to-br from-[#071A3D] via-[#0B2855] to-[#06142E] text-white shadow-xl"
               >
-                Send Money
+                {pinLocked
+                  ? "Transaction PIN Locked"
+                  : "Send Money"}
               </Button>
             </div>
           </CardContent>
@@ -455,7 +512,10 @@ export default function SendMoneyPage() {
               <Button
                 type="button"
                 onClick={handleConfirmTransfer}
-                disabled={pin.length !== 4 || pinLoading}
+                disabled={
+                  pin.length !== 4 ||
+                  pinLoading
+                }
                 className="flex-1 border-blue-950 bg-linear-to-br from-[#071A3D] via-[#0B2855] to-[#06142E] text-white"
               >
                 {pinLoading

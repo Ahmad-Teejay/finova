@@ -8,6 +8,9 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import bcryptjs from "bcryptjs";
 
+const PIN_MAX_ATTEMPTS = 3;
+const PIN_LOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
 export async function POST(request: NextRequest) {
   try {
     await connect();
@@ -83,38 +86,6 @@ export async function POST(request: NextRequest) {
     }
 
     // -----------------------------
-    // Find recipient
-    // -----------------------------
-
-    const recipientUser = await User.findOne({
-      accountNumber: recipient,
-    });
-
-    if (!recipientUser) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Recipient not found",
-        },
-        { status: 404 }
-      );
-    }
-
-    // -----------------------------
-    // Prevent self transfer
-    // -----------------------------
-
-    if (recipientUser._id.toString() === user.userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "You cannot send yourself money",
-        },
-        { status: 400 }
-      );
-    }
-
-    // -----------------------------
     // Find sender
     // -----------------------------
 
@@ -145,6 +116,46 @@ export async function POST(request: NextRequest) {
     }
 
     // -----------------------------
+    // Check PIN lock
+    // -----------------------------
+
+    if (
+      senderUser.pinLockedUntil &&
+      senderUser.pinLockedUntil > new Date()
+    ) {
+      const remainingMs =
+        senderUser.pinLockedUntil.getTime() - Date.now();
+
+      const remainingMinutes = Math.ceil(
+        remainingMs / (60 * 1000)
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Transaction PIN is locked. Try again in ${remainingMinutes} minute${
+            remainingMinutes === 1 ? "" : "s"
+          }.`,
+        },
+        { status: 403 }
+      );
+    }
+
+    // -----------------------------
+    // Reset expired lock
+    // -----------------------------
+
+    if (
+      senderUser.pinLockedUntil &&
+      senderUser.pinLockedUntil <= new Date()
+    ) {
+      senderUser.pinLockedUntil = null;
+      senderUser.pinFailedAttempts = 0;
+
+      await senderUser.save();
+    }
+
+    // -----------------------------
     // Verify transaction PIN
     // -----------------------------
 
@@ -153,11 +164,96 @@ export async function POST(request: NextRequest) {
       senderUser.transactionPinHash
     );
 
+    // -----------------------------
+    // Wrong PIN
+    // -----------------------------
+
     if (!isPinValid) {
+      const currentFailedAttempts =
+      senderUser.pinFailedAttempts || 0;
+
+      senderUser.pinFailedAttempts =
+      currentFailedAttempts + 1;
+
+      // Lock after 3 failed attempts
+      if (
+        senderUser.pinFailedAttempts >= PIN_MAX_ATTEMPTS
+      ) {
+        senderUser.pinLockedUntil = new Date(
+          Date.now() + PIN_LOCK_DURATION_MS
+        );
+
+        await senderUser.save();
+
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "Too many incorrect PIN attempts. Your transaction PIN has been locked for 15 minutes.",
+          },
+          { status: 403 }
+        );
+      }
+
+      await senderUser.save();
+
+      const attemptsRemaining =
+        PIN_MAX_ATTEMPTS -
+        senderUser.pinFailedAttempts;
+
       return NextResponse.json(
         {
           success: false,
-          message: "Incorrect transaction PIN",
+          message: `Incorrect transaction PIN. ${attemptsRemaining} attempt${
+            attemptsRemaining === 1 ? "" : "s"
+          } remaining.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // -----------------------------
+    // Correct PIN
+    // Reset failed attempts
+    // -----------------------------
+
+    if (
+      senderUser.pinFailedAttempts > 0 ||
+      senderUser.pinLockedUntil
+    ) {
+      senderUser.pinFailedAttempts = 0;
+      senderUser.pinLockedUntil = null;
+
+      await senderUser.save();
+    }
+
+    // -----------------------------
+    // Find recipient
+    // -----------------------------
+
+    const recipientUser = await User.findOne({
+      accountNumber: recipient,
+    });
+
+    if (!recipientUser) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Recipient not found",
+        },
+        { status: 404 }
+      );
+    }
+
+    // -----------------------------
+    // Prevent self transfer
+    // -----------------------------
+
+    if (recipientUser._id.toString() === user.userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "You cannot send yourself money",
         },
         { status: 400 }
       );
@@ -207,12 +303,14 @@ export async function POST(request: NextRequest) {
       await recipientWallet.save({ session });
 
       // -----------------------------
-      // Create transaction references
+      // Transaction references
       // -----------------------------
 
-      const senderReference = `TRANSFER-${crypto.randomUUID()}`;
+      const senderReference =
+        `TRANSFER-${crypto.randomUUID()}`;
 
-      const recipientReference = `TRANSFER-${crypto.randomUUID()}`;
+      const recipientReference =
+        `TRANSFER-${crypto.randomUUID()}`;
 
       // -----------------------------
       // Create transaction records
@@ -261,7 +359,10 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       await session.abortTransaction();
 
-      console.error("Transfer transaction error:", error);
+      console.error(
+        "Transfer transaction error:",
+        error
+      );
 
       return NextResponse.json(
         {

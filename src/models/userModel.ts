@@ -8,6 +8,8 @@ export interface IUser extends Document{
     phone: string,
     accountNumber: string,
     transactionPinHash: string | null,
+    pinFailedAttempts: number,
+    pinLockedUntil: Date | null,
     isVerified: boolean,
     isAdmin: boolean,
 }
@@ -42,6 +44,17 @@ const userSchema =  new Schema<IUser>(
 
         transactionPinHash: {
             type: String,
+            default: null,
+        },
+
+        pinFailedAttempts: {
+            type: Number,
+            default: 0,
+            min: 0
+        },
+
+        pinLockedUntil: {
+            type: Date,
             default: null,
         },
 
