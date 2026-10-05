@@ -14,7 +14,7 @@ export async function GET(){
                     success: false,
                     message: "Unauthorized",
                 },
-                {status: 404}
+                {status: 401}
             )
         }
 

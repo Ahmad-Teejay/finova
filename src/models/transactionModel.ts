@@ -71,7 +71,7 @@ const transactionSchema = new Schema<ITransaction>(
         idempotencyKey: {
             type: String,
             unique: true,
-            sparce: true,
+            sparse: true,
         }
     },
 
