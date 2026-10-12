@@ -26,7 +26,7 @@ export default async function DashboardPage() {
 
   // Get logged-in user's profile
   const userProfile = await User.findById(user.userId).select(
-    "username email phone accountNumber"
+    "username email phone accountNumber fullName"
   );
 
   if (!userProfile) {
@@ -77,6 +77,7 @@ export default async function DashboardPage() {
             <BalanceCard
               balance={wallet.balance}
               accountNumber={userProfile.accountNumber}
+              fullName={userProfile.fullName}
             />
 
             {/* Quick Actions */}
@@ -147,7 +148,7 @@ export default async function DashboardPage() {
                     status: transaction.status,
                     reference: transaction.reference,
                     createdAt:
-                      transaction.createdAt.toISOString(),
+                    transaction.createdAt.toISOString(),
                   })
                 )}
               />

@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/helpers/auth";
 import User from "@/models/userModel";
 import Wallet from "@/models/walletModel";
 import Transaction from "@/models/transactionModel";
+import Notification from "@/models/notificationModel";
 import mongoose from "mongoose";
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
@@ -342,6 +343,29 @@ export async function POST(request: NextRequest) {
           ordered: true,
         }
       );
+
+      await Notification.create(
+          [
+            {
+              user: user.userId,
+              title: "Transfer Successful",
+              message: `You sent ₦${numericAmount.toLocaleString()} to ${recipientUser.username}`,
+              type: "transfer",
+              isRead: false,
+            },
+            {
+              user: recipientUser._id,
+              title: "Money Received",
+              message: `You received ₦${numericAmount.toLocaleString()} from ${senderUser.username}`,
+              type: "transfer",
+              isRead: false,
+            },
+          ],
+          {
+            session,
+            ordered: true,
+          }
+        );
 
       // -----------------------------
       // Commit transaction

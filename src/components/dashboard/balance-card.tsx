@@ -2,16 +2,18 @@
 
 import { Copy } from "lucide-react";
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 interface BalanceCardProps {
   balance: number;
   accountNumber: string;
+  fullName: string;
 }
 
 export default function BalanceCard({
   balance,
   accountNumber,
+  fullName,
 }: BalanceCardProps) {
   const handleCopy = async () => {
     try {
@@ -27,14 +29,13 @@ export default function BalanceCard({
     <Card className="border-blue-950 bg-linear-to-br from-[#071A3D] via-[#0B2855] to-[#06142E] text-white shadow-xl">
       <CardHeader>
         <div className="flex items-center justify-between gap-4">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Available Balance
-          </CardTitle>
-
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text white">
+              {fullName}
+            </span> | 
+            <span className="text-sm font-medium text white">
               {accountNumber}
-            </span>
+            </span> 
 
             <button
               type="button"

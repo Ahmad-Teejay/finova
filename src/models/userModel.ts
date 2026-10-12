@@ -12,6 +12,8 @@ export interface IUser extends Document{
     pinLockedUntil: Date | null,
     isVerified: boolean,
     isAdmin: boolean,
+    emailVerificationTokenHash: string | null,
+    emailVerificationTokenExpires: Date | null,
 }
 
 const userSchema =  new Schema<IUser>(
@@ -76,6 +78,16 @@ const userSchema =  new Schema<IUser>(
         isVerified: {
             type: Boolean,
             default: false,
+        },
+
+        emailVerificationTokenHash: {
+            type: String,
+            default: null,
+        },
+
+        emailVerificationTokenExpires: {
+            type: Date,
+            default: null,
         },
 
         isAdmin: {
